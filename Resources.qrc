@@ -1,0 +1,32 @@
+<RCC>
+    <qresource prefix="/images">
+        <file>images/pause.png</file>
+        <file>images/play.png</file>
+        <file>images/sound.png</file>
+        <file>images/speed.png</file>
+        <file>images/stop.png</file>
+        <file>images/mute.png</file>
+        <file>images/list.png</file>
+        <file>images/settins.png</file>
+		<file>images/g_account.png</file>
+        <file>images/14135.png</file>
+        <file>images/g_avion.png</file>
+        <file>images/g_bagage.png</file>
+        <file>images/g_empl.png</file>
+        <file>images/g_vol.png</file>
+        <file>images/g_voyageur.png</file>
+        <file>images/login-logo.png</file>
+        <file>images/password.png</file>
+        <file>images/username.png</file>
+        <file>images/admin.png</file>
+        <file>images/add.png</file>
+        <file>images/pause.png</file>
+        <file>images/play.png</file>
+        <file>images/sound.png</file>
+        <file>images/speed.png</file>
+        <file>images/stop.png</file>
+        <file>images/mute.png</file>
+        <file>images/settins.png</file>
+        <file>images/list.png</file>
+    </qresource>
+</RCC>
