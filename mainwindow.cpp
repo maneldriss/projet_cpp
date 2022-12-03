@@ -1,62 +1,32 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include "bagage.h"
+#include "voyageur.h"
 #include <QMessageBox>
-#include <QIntValidator>
-#include <QDoubleValidator>
-#include <QValidator>
-#include <QPrinter>
-#include <QPrintDialog>
-#include <QPixmap>
-#include "statistique.h"
-#include "video.h"
-#include <QGraphicsView>
-#include "QZXing.h"
-#include <QGraphicsScene>
-#include <QTextDocument>
-#include <QTimer>
-#include <QMovie>
-MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
+#include <QCheckBox>
+#include<QSqlQuery>
+#include<QPainter>
+#include<QtCharts>
+#include<QtCharts/QBarSet>
+#include<QtCharts/QBarCategoryAxis>
+#include<QtCharts/QBarSeries>
+
+MainWindow::MainWindow(QWidget *parent) :
+    QMainWindow(parent),
+    ui(new Ui::MainWindow)
 {
+
     ui->setupUi(this);
-
-//max nombres des bagages 10
-//max poids 35
-//max dimension 158
-
-    QTimer *t = new QTimer(this);
-    t->setInterval(1000);
-    connect(t, &QTimer::timeout, [&]() {
-       QString time1 = QTime::currentTime().toString();
-       ui->label_clock->setText(time1);
-    } );
-    t->start();
-
-    QMovie *movie = new QMovie("C:/Users/4Tnx/Desktop/manager/giphy.gif");
-    if (!movie->isValid())
-        ui->processLabel->setText(QString("path erreur"));
-else {
-
-         QLabel *processLabel = new QLabel(this);
-         processLabel->setGeometry(980,25,420,420);
-         processLabel->setVisible(true);
-         processLabel->setMovie(movie);
-    movie->start();}
-
-
-    ui->id->setValidator(new QIntValidator(1, 99999999,this));
-        ui->nb->setValidator(new QIntValidator(0, 10,this));
-ui->poids->setValidator(new QDoubleValidator(0.00,35.00,2));
-
-          ui->dimension->setValidator(new QDoubleValidator(0.00,158.00,2));
-
-  ui->nb_m->setValidator(new QIntValidator(0, 10,this));
-        ui->poids_m->setValidator(new QDoubleValidator(0.00,35.00,2));
-              ui->dimension_m->setValidator(new QDoubleValidator(0.00,158.00,2));
-
-
+    int ret=A.connect_arduino(); // lancer la connexion à arduino
+           switch(ret){
+           case(0):qDebug()<< "arduino is available and connected to : "<< A.getarduino_port_name();
+               break;
+           case(1):qDebug() << "arduino is available but not connected to :" <<A.getarduino_port_name();
+              break;
+           case(-1):qDebug() << "arduino is not available";
+           }
+    ui->tableview->setModel(vtemp.afficher());
+    ui->combosupp->setModel(vtemp.get_id());
+    //show_tables();
 }
 
 MainWindow::~MainWindow()
@@ -64,426 +34,296 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::on_Confirmer_clicked()
+void MainWindow::on_Ajouterbutton_clicked()
 {
-    int id=ui->id->text().toInt();
-    int nb=ui->nb->text().toInt();
-    QString type=ui->type_a->currentText();
-    float poids=ui->poids->text().toFloat();
-    float dimension=ui->dimension->text().toFloat();
-
-    Bagage Dtmp(id,nb,type,poids,dimension);
-    bool valid=true;
-   if((Dtmp.Verif_NB_B()==true) or (Dtmp.Verif_DIMENSION()==true) or (Dtmp.Verif_POIDS()==true))
+    int id=ui->idedit->text().toInt() ; //recovery and converting to an integer
+       QString nom=ui->nomedit->text();
+        QString prenom=ui->prenomedit->text();// recovery of string
+        int age=ui->ageedit->text().toInt();
+       voyageur v(id,nom,prenom,age);
+       bool test=v.ajouter();
+       if(test)
           {
+           ui->tableview->setModel(vtemp.afficher());
+           ui->combosupp->setModel(vtemp.get_id());
+           A.write_to_arduino("1");
+           QMessageBox::information(nullptr, QObject::tr("Ajouter espace"),
+                       QObject::tr("Patient ajouter.\n""Click Cancel to exit."), QMessageBox::Cancel);
+       }
 
-                 if(Dtmp.Verif_NB_B())
-                               { ui->verifier2->clear();
-                       ui->verifier2->setText(QString("Le nb non vide"));
+       else
+
+       {
+           ui->tableview->setModel(vtemp.afficher());
+           ui->combosupp->setModel(vtemp.get_id());
+           A.write_to_arduino("2");
+           QMessageBox::critical(nullptr, QObject::tr("not Ajouter espace"),
+                       QObject::tr("Ajout echoué.\n""Click Cancel to exit."), QMessageBox::Cancel);
+
+       }
+}
+
+void MainWindow::on_Supprimerbutton_clicked()
+{
+    int ID = ui->combosupp->currentText().toInt();
+           bool test=vtemp.supprimer(ID);
+
+        if(test)
+           {
+            ui->tableview->setModel(vtemp.afficher());
+            ui->combosupp->setModel(vtemp.get_id());
+            A.write_to_arduino("3");
+            QMessageBox::information(nullptr, QObject::tr("OK"),
+                        QObject::tr("Suppression effectuée.\n""Click Cancel to exit."), QMessageBox::Cancel);
+        }
+
+        else
+
+        {
+            ui->tableview->setModel(vtemp.afficher());
+            ui->combosupp->setModel(vtemp.get_id());
+            QMessageBox::critical(nullptr, QObject::tr("NOT OK"),
+                        QObject::tr("Suppression echoué.\n""Click Cancel to exit."), QMessageBox::Cancel);
+
+        }
+}
 
 
-              }
-                 if(Dtmp.Verif_POIDS())
-                               { ui->verifier4->clear();
-                     ui->verifier4->setText(QString("Le poids non vide"));
+void MainWindow::on_Modifierbutton_clicked()
+{
+    int ID = ui->oldid->text().toInt();
+            QString nom= ui->nommod->text();
+            QString prenom= ui->prenommod->text();
+int age = ui->oldid->text().toInt();
+           voyageur v(ID,nom,prenom,age);
+             bool test = v.update(ID);
 
 
+                if(test)
+
+                {
+
+                    ui->tableview->setModel(vtemp.afficher());
+                     ui->combosupp->setModel(vtemp.get_id());
+
+                    QMessageBox::information(nullptr, QObject::tr("EQUIPEMENT modifie"),
+                                QObject::tr("EQUIPEMENT modifie\n"
+                "Click Cancel to exit."), QMessageBox::Cancel);}
+
+                else
+
+                {
+
+                    QMessageBox::critical(nullptr, QObject::tr("not modifier"),
+                                QObject::tr("not modified.\n""Click Cancel to exit."), QMessageBox::Cancel);
 
                 }
-                 if(Dtmp.Verif_DIMENSION())
-                               { ui->verifier5->clear();
-                      ui->verifier5->setText(QString("Le dimension non vide"));
 
-
-
-               }
-                 if(Dtmp.Verif_ID_B())
-                               { ui->verifier1->clear();
-                     ui->verifier1->setText(QString("Le ID non vide"));
-
-
-                }
-                 valid=false;
-                 }
-QString rech = QString::number(id);
-
- if (Dtmp.rechercher(id)->rowCount()==0 and rech.length()!=0 and valid){
-  Dtmp.ajouter();
-
-   QMessageBox::information(nullptr, QObject::tr("Succès"),
-QObject::tr("Ajout effectué.\n"
-  "Cliquer sur Cancel to exit."), QMessageBox::Cancel);
+                foreach(QLineEdit *widget, this->findChildren<QLineEdit*>()) {
+                        widget->clear();
+                    }
 }
-   else
-      QMessageBox::critical(nullptr, QObject::tr("ERREUR"),
-                            QObject::tr("Ajouter non effectué !\n"
-                              "Cliquer sur Cancel to exit."), QMessageBox::Cancel);
 
 
 
-    ui->id->clear();
-    ui->nb->clear();
-    ui->poids->clear();
-    ui->dimension->clear();
-    ui->verifier1->clear();
-    ui->verifier2->clear();
-    ui->verifier3->clear();
-    ui->verifier4->clear();
-    ui->verifier5->clear();
-    ui->tableView->setModel(Dtmp.afficher());
-
-
-}
-void MainWindow::on_Modifier_clicked()
+void MainWindow::on_tableview_activated(const QModelIndex &index)
 {
-
-
-
-QString id=ui->id_m->currentText();
- int rech = id.toInt();
-int nb=ui->nb_m->text().toInt();
-QString type=ui->type_m->currentText();
-
-float poids=ui->poids_m->text().toFloat();
-float dimension=ui->dimension_m->text().toFloat();
-  Bagage Dtmp(rech,nb,type,poids,dimension);
-bool valid=true;
-if( (Dtmp.Verif_NB_B()==true) or (Dtmp.Verif_DIMENSION()==true) or (Dtmp.Verif_POIDS()==true))
-          {
-
-
-              if(Dtmp.Verif_NB_B())
-                            { ui->verifier1_4->clear();
-                    ui->verifier1_4->setText(QString("Le nb non vide"));
-
-
-           }
-              if(Dtmp.Verif_POIDS())
-                            { ui->verifier1_5->clear();
-                  ui->verifier1_5->setText(QString("Le poids non vide"));
-
-
+    QString id=ui->tableview->model()->data(index).toString();
+         QSqlQuery query;
+         query.prepare("SELECT * FROM VOYAGEUR WHERE ID= :ID");
+         query.bindValue(":ID",id);
+         if(query.exec()){
+             while(query.next()){
+                  ui->oldid->setText(query.value(0).toString());
+                 ui->oldnom->setText(query.value(1).toString());
+                 ui->oldprenom->setText(query.value(2).toString());
+                  ui->oldage->setText(query.value(3).toString());
 
              }
-              if(Dtmp.Verif_DIMENSION())
-                            { ui->verifier1_6->clear();
-                   ui->verifier1_6->setText(QString("Le dimension non vide"));
-
-
-
-            }
-              if(Dtmp.Verif_ID_B())
-                            { ui->verifier1_2->clear();
-                  ui->verifier1_2->setText(QString("Le ID non vide"));
-
-
-             }
-              valid=false;
-              }
-
-
-
-
-
-if (Dtmp.rechercher(rech)->rowCount()!=0 and id.length()!=0 and valid){
-
-    Dtmp.modifier_b(id);
- QMessageBox::information(nullptr, QObject::tr("Succès"),
-QObject::tr("Modifier effectué.\n"
-"Cliquer sur Cancel to exit."), QMessageBox::Cancel);
-}
- else
-    QMessageBox::critical(nullptr, QObject::tr("ERREUR"),
-                          QObject::tr("Modifier non effectué !\n"
-                            "Cliquer sur Cancel to exit."), QMessageBox::Cancel);
-
-ui->nb_m->clear();
-
-ui->poids_m->clear();
-ui->dimension_m->clear();
-
-ui->verifier1_2->clear();
-ui->verifier1_3->clear();
-ui->verifier1_4->clear();
-ui->verifier1_5->clear();
-ui->verifier1_6->clear();
- ui->tableView->setModel(Dtmp.afficher());
-
-
+         }
 }
 
-void MainWindow::on_supprimer_clicked()
+void MainWindow::on_sortid_clicked()
 {
- QString recherche=ui->idsup->currentText();
-
-    int rech = recherche.toInt();
-
-    if (Dtmp.rechercher(rech)->rowCount()!=0 and recherche.length()!=0 ){
-
-Dtmp.supprimer(rech);
-     QMessageBox::information(nullptr, QObject::tr("Succès"),
-  QObject::tr("Suppression effectué.\n"
-    "Cliquer sur Cancel to exit."), QMessageBox::Cancel);
-    }
-     else
-        QMessageBox::critical(nullptr, QObject::tr("ERREUR"),
-                              QObject::tr("Suppression non effectué !\n"
-                                "Cliquer sur Cancel to exit."), QMessageBox::Cancel);
-    ui->tableView_2->setModel(Dtmp.afficher());
- ui->idsup->setModel(Dtmp.affiche_id());
+    ui->tableview->setModel(vtemp.trierid_asc());
 }
-
-void MainWindow::on_pushButton_2_clicked()
-{
-
-
-    ui->nb->clear();
-
-    ui->poids->clear();
-    ui->dimension->clear();
-}
-
-void MainWindow::on_Annuler_clicked()
-{
-
-    ui->nb_m->clear();
-
-    ui->poids_m->clear();
-    ui->dimension_m->clear();
-}
-void MainWindow::on_Chercher_clicked()
-{QString recherche=ui->idrech->currentText();
-     ui->idrech->setModel(Dtmp.affiche_id());
-     int rech = recherche.toInt();
-
-  ui->tableView->setModel(Dtmp.rechercher(rech));
+void MainWindow::on_sortid_2_clicked()
+{ ui->tableview->setModel(vtemp.trierid_desc());
 
 }
 
-void MainWindow::on_Refresh_clicked()
-{
-ui->tableView->setModel(Dtmp.afficher());
-}
-void MainWindow::on_supprimer_2_clicked()
-{
-     ui->idsup->setModel(Dtmp.affiche_id());
-     QString recherche=ui->idsup->currentText();
-         int rech = recherche.toInt();
-    ui->tableView_2->setModel(Dtmp.rechercher(rech));
-}
-
-void MainWindow::on_Chercher_2_clicked()
-{
-
- ui->id_m->setModel(Dtmp.affiche_id());
-   QString recherche=ui->id_m->currentText();
-       int rech = recherche.toInt();
-ui->tableView->setModel(Dtmp.rechercher(rech));
-}
-
-
-
-
-
-void MainWindow::on_trierc_activated()
-{
-    if(ui->trierc->currentText()=="Trie par ID par ordre croissant")
-               ui->tableView->setModel(Dtmp.Trier_ID_A());
-           else if (ui->trierc->currentText()=="Trie par ID par ordre decroissant")
-               ui->tableView->setModel(Dtmp.Trier_ID_D());
-           else if (ui->trierc->currentText()=="Trie par TYPE par ordre croissant et poids entre 0 et 10")
-               ui->tableView->setModel(Dtmp.Trier_TYPE_A());
-           else if (ui->trierc->currentText()=="Trie par TYPE par ordre decroissant et poids entre 0 et 10")
-               ui->tableView->setModel(Dtmp.Trier_TYPE_D());
-           else if (ui->trierc->currentText()=="Trier par POIDS par ordre croissant")
-               ui->tableView->setModel(Dtmp.Trier_POIDS_A());
-           else if (ui->trierc->currentText()=="Trier par POIDS par ordre decroissant")
-               ui->tableView->setModel(Dtmp.Trier_POIDS_D());
-
-    else if (ui->trierc->currentText()=="Trier par DIMENSION par ordre croissant")
-        ui->tableView->setModel(Dtmp.Trier_DIMENSION_A());
-        else if (ui->trierc->currentText()=="Trier par DIMENSION par ordre decroissant")
-            ui->tableView->setModel(Dtmp.Trier_DIMENSION_D());
-
-        else if (ui->trierc->currentText()=="Trier par Nombre des bagages par ordre croissant")
-            ui->tableView->setModel(Dtmp.Trier_NB_A());
-        else if (ui->trierc->currentText()=="Trier par Nombre des bagages par ordre decroissant")
-            ui->tableView->setModel(Dtmp.Trier_NB_D());
-
-}
-
-
-void MainWindow::on_pushButton_8_clicked()
+void MainWindow::on_pushButton_clicked()
 {
     QString strStream;
-                    QTextStream out(&strStream);
-
-                          const int rowCount = ui->tableView->model()->rowCount();
-                          const int columnCount = ui->tableView->model()->columnCount();
-                          QString TT = QDate::currentDate().toString("yyyy/MM/dd");
-                          out <<"<html>\n"
-                                "<head>\n"
-                                 "<meta Content=\"Text/html; charset=Windows-1251\">\n"
-
-                              << "<title> LISTE DES BAGAGES<title>\n "
-                              << "</head>\n"
-                                 "'<div style='text-align: right;'><img src='C:/Users/4Tnx/Desktop/manager/images/admin.png' width='100'  /></div>\n'</br> </br>'"
-                              "<body bgcolor=#ffffff link=#5000A0>\n"
-                              "<h1 style=\"border-collapse: collapse;color:#5000A0;margin: 25px 0;font-size: 0.9em;font-family: sans-serif;min-width: 400px;box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);\"><strong>Date :       "+TT+" </b> **LISTE DES BAGAGES **   </strong></h1>"
-                              "<table style=\"text-align: center; font-size: 22px;color: #128cb5;\" border=1>\n "
-"<p style='background-image: url('C:/Users/4Tnx/Desktop/manager/back.jpg') opacity: 0.5;'>"
+                     QTextStream out(&strStream);
+                     const int rowCount = ui->tableview->model()->rowCount();
+                     const int columnCount =ui->tableview->model()->columnCount();
 
 
-                                 ;
-                          // headers
-                          out << "<thead><tr bgcolor=#d6e5ff> ";
-                          for (int column = 0; column < columnCount; column++)
-                              if (!ui->tableView->isColumnHidden(column))
-                                  out << QString("<th>%1</th>").arg(ui->tableView->model()->headerData(column, Qt::Horizontal).toString());
-                          out << "</tr></thead>\n";
+                     out <<  "<html>\n"
+                             "<head>\n"
+                             "<meta Content=\"Text/html; charset=Windows-1251\">\n"
+                             <<  QString("<title>%1</title>\n").arg("eleve")
+                             <<  "</head>\n"
+                             "<body bgcolor=#F2E7D5 link=#393E46>\n"
+                                 "<h1>Liste des Voyageurs</h1>"
 
-                          // data table
-                          for (int row = 0; row < rowCount; row++) {
-                              out << "<tr>";
-                              for (int column = 0; column < columnCount; column++) {
-                                  if (!ui->tableView->isColumnHidden(column)) {
-                                      QString data =ui->tableView->model()->data(ui->tableView->model()->index(row, column)).toString().simplified();
-                                      out << QString("<td bkcolor=0>%1</td>").arg((!data.isEmpty()) ? data : QString("&nbsp;"));
-                                  }
-                              }
-                              out << "</tr>\n";
-                          }
-                          out <<  "</table>\n"
-                              "</body>\n"
-                              "</html>\n";
+                                 "<table border=0 cellspacing=5 cellpadding=5>\n";
 
-                          QTextDocument *document = new QTextDocument();
-                          document->setHtml(strStream);
+                     // headers
+                         out << "<thead><tr bgcolor=#F2E7D5>";
+                         for (int column = 0; column < columnCount; column++)
+                             if (!ui->tableview->isColumnHidden(column))
+                                 out << QString("<th>%1</th>").arg(ui->tableview->model()->headerData(column, Qt::Horizontal).toString());
+                         out << "</tr></thead>\n";
+                         // data table
+                            for (int row = 0; row < rowCount; row++) {
+                                out << "<tr>";
+                                for (int column = 0; column < columnCount; column++) {
+                                    if (!ui->tableview->isColumnHidden(column)) {
+                                        QString data = ui->tableview->model()->data(ui->tableview->model()->index(row, column)).toString().simplified();
+                                        out << QString("<td bkcolor=0>%1</td>").arg((!data.isEmpty()) ? data : QString("&nbsp;"));
+                                    }
+                                }
+                                out << "</tr>\n";
+                            }
+                            out <<  "</table>\n"
+                                "</body>\n"
+                                "</html>\n";
 
-                          QPrinter printer;
 
-                          QPrintDialog *test = new QPrintDialog(&printer, NULL);
-                          if (test->exec() == QDialog::Accepted) {
-                              document->print(&printer);
-                          }
 
-                          delete document;
+             QTextDocument *document = new QTextDocument();
+             document->setHtml(strStream);
+
+
+             //QTextDocument document;
+             //document.setHtml(html);
+             QPrinter printer(QPrinter::PrinterResolution);
+             printer.setOutputFormat(QPrinter::PdfFormat);
+             printer.setOutputFileName("C:\\Users\\Hela\\Documents\\Atelier_Connexion\\pdf.pdf"); //link needs to he right
+             document->print(&printer);
 }
 
 
 
 
-
-void MainWindow::on_id_m_currentIndexChanged()
+void MainWindow::on_rechercher_clicked()
 {
+    QString id1=ui->searsh->text();
 
-        QString recherche=ui->id_m->currentText();
+     ui->tableview->setModel(vtemp.rechercher(id1));
 
-        QSqlQuery qr;
 
-        qr.prepare("SELECT * FROM BAGAGE where ID_B = "+recherche);
-
-              if(qr.exec())  {
-            while (qr.next()) {
-                ui->nb_m->setText(qr.value(1).toString());
-if ( qr.value(2).toString() == "accessoire personnel" )
-    ui->type_m->setCurrentIndex(0);
-if ( qr.value(2).toString() == "bagage cabine" )
-    ui->type_m->setCurrentIndex(1);
-if ( qr.value(2).toString() == "bagages en soute" )
-    ui->type_m->setCurrentIndex(2);
+}
 
 
 
-                ui->poids_m->setText(qr.value(3).toString());
-                ui->dimension_m->setText(qr.value(4).toString());
+//void MainWindow::on_ajoutphoto_clicked()
+//{
+
+//}
+
+
+void MainWindow::on_ajoutstat_clicked()
+{
+    QSqlQuery query,query1,query2,query3;
+            qreal c1=0 ,sum=0,c2=0,c3=0;
+            query.prepare("SELECT * FROM employe") ;
+            query.exec();
+            while(query.next())
+            {
+                    sum++ ;
             }
-        }
-    }
+
+            query1.prepare("SELECT * FROM employe where age >25 and age<35") ;
+            query1.exec();
+            while(query1.next())
+            {
+                    c1++ ;
+            }
+
+            query2.prepare("SELECT * FROM employe where age >35 and age<45 ") ;
+            query2.exec();
+            while(query2.next())
+            {
+                    c2++ ;
+            }
+
+            query3.prepare("SELECT * FROM employe where age >45") ;
+            query3.exec();
+            while(query3.next())
+            {
+                    c3++ ;
+            }
+
+        qreal d1,d2,d3;
+        d1=(c1/sum)*100;
+        d2=(c1/sum)*100;
+        d3=(c1/sum)*100;
+            QBarSet *set1 = new QBarSet("age>25");
+            QBarSet *set2 = new QBarSet("age>35");
+            QBarSet *set3 = new QBarSet("age>45");
 
 
-
-void MainWindow::on_idsup_currentIndexChanged()
-{
-    QString recherche=ui->idsup->currentText();
-        int rech = recherche.toInt();
-        ui->tableView_2->setModel(Dtmp.rechercher(rech));
-}
-
-void MainWindow::on_idrech_currentIndexChanged()
-{
-    QString recherche=ui->idrech->currentText();
-        int rech = recherche.toInt();
-      ui->tableView->setModel(Dtmp.rechercher(rech));
-}
+            // Assign values for each bar
+             *set1 << d1 ;
+             *set2 << d2 ;
+             *set3 << d3 ;
 
 
+            // Add all sets of data to the chart as a whole
+            // 1. Bar Chart
+            QBarSeries *series = new QBarSeries();
+
+            // 2. Stacked bar chart
+            // QHorizontalStackedBarSeries *series = new QHorizontalStackedBarSeries();
+
+            series->append(set1);
+            series->append(set2);
+            series->append(set3);
 
 
-void MainWindow::on_Chercher_3_clicked()
-{
-     ui->idqr->setModel(Dtmp.affiche_id());
-}
+            // Used to define the bar chart to display, title
+            // legend,
+            QChart *chart = new QChart();
 
-void MainWindow::on_idqr_currentIndexChanged()
-{
+            // Add the chart
+            chart->addSeries(series);
 
-    ui->qr1->clear();
-    ui->qr2->clear();
-    ui->qr3->clear();
-    ui->qr4->clear();
-    ui->qr5->clear();
-   ui->qr0->clear();
+            // Set title
+            chart->setTitle("STATISTIQUE");
 
-     QString recherche=ui->idqr->currentText();
-     QSqlQuery qr;
- qr.prepare("SELECT * FROM BAGAGE where ID_B LIKE '"+recherche+"'");
-QString id,nb,type,poids,dimension;
+            // Define starting animation
+            // NoAnimation, GridAxisAnimations, SeriesAnimations
+            chart->setAnimationOptions(QChart::SeriesAnimations);
 
-           if(qr.exec())  {
-         while (qr.next()) {
-         id = qr.value(0).toString();
-             nb = qr.value(1).toString();
+            // Holds the category titles
+            QStringList categories;
+            categories << "stats";
 
-              type = qr.value(2).toString();
-              poids = qr.value(3).toString();
-               dimension = qr.value(4).toString();
-
-         }
-
-     }
+            // Adds categories to the axes
+            QBarCategoryAxis *axis = new QBarCategoryAxis();
+            axis->append(categories);
+            chart->addAxis(axis, Qt::AlignBottom);
+            series->attachAxis(axis);
+            chart->createDefaultAxes();
 
 
- QString data="Les information : ID de Bagage : "+id+", Nombre des Bagages : "+nb+" ,Type de Bagage : "+type+" ,Poids des Bagages : "+poids+"Kg ,Dimension des Bagages : "+dimension+"cm";
-QImage barcode = QZXing::encodeData(data);
-           QGraphicsScene *graphic = new QGraphicsScene(this);
-           graphic->addPixmap( QPixmap::fromImage(barcode));
-           ui->graphicsView->setScene(graphic);
+            // 2. Stacked Bar chart
+
+            // Define where the legend is displayed
+            chart->legend()->setVisible(true);
+            chart->legend()->setAlignment(Qt::AlignBottom);
 
 
-ui->qr0->setText(QString("Les information :"));
-ui->qr1->setText(QString("ID de Bagage : "+id));
-ui->qr2->setText(QString("Nombre des Bagages : "+nb));
-ui->qr3->setText(QString("Type de Bagage : "+type));
-ui->qr4->setText(QString("Poids de Bagage : "+poids+"Kg"));
-ui->qr5->setText(QString("Dimension de Bagage : "+dimension+"cm"));
+            // Used to display the chart
+            QChartView *chartView = new QChartView(chart);
+            chartView->setRenderHint(QPainter::Antialiasing);
 
+             chartView->setMinimumSize(621,192);
+            chartView->setParent(ui->tabstat);
+            chart->setTheme(QChart::ChartThemeBlueIcy);
+            chartView->show();
 
-}
-
-
-
-void MainWindow::on_pushButton_11_clicked()
-{
-
-      video w;
-
-        w.exec();
-
-}
-
-void MainWindow::on_pushButton_10_clicked()
-{
-    statistique s;
-           s.exec();
 }

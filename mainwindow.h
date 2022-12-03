@@ -1,79 +1,63 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
-#include"bagage.h"
+#include "voyageur.h"
+#include "arduino.h"
 #include <QMainWindow>
-#include <QRegExp>
-#include <QDate>
-QT_BEGIN_NAMESPACE
-namespace Ui { class MainWindow; }
-QT_END_NAMESPACE
+#include <QMainWindow>
+#include <QPrinter>
+#include <QSortFilterProxyModel>
+#include <QTextTableFormat>
+#include <QStandardItemModel>
+#include <QDialog>
+#include <QFileDialog>
+#include <QDialog>
+#include <QDesktopWidget>
+#include <QSettings>
+#include <QTextStream>
+#include <QFile>
+#include <QDataStream>
+#include <QTextDocument>
+
+namespace Ui {
+class MainWindow;
+}
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+     QSortFilterProxyModel *proxy;
+    void show_tables();
 
 private slots:
+    void on_Ajouterbutton_clicked();
 
-    void on_Confirmer_clicked();
+    void on_Supprimerbutton_clicked();
 
-    void on_supprimer_clicked();
+    //void on_combosupp_activated(const QString &arg1);
 
-    void on_Modifier_clicked();
+    void on_Modifierbutton_clicked();
 
-    void on_pushButton_2_clicked();
+    void on_tableview_activated(const QModelIndex &index);
 
-    void on_Annuler_clicked();
-   void on_Chercher_clicked();
+    void on_sortid_clicked();
 
-void on_Refresh_clicked();
+    void on_pushButton_clicked();
 
-void on_supprimer_2_clicked();
+    void on_sortid_2_clicked();
 
-void on_Chercher_2_clicked();
+    void on_rechercher_clicked();
 
-
-
-
-void on_trierc_activated();
-
-void on_pushButton_10_clicked();
-
-void on_pushButton_8_clicked();
-
-
-
-
-
-
-
-void on_idsup_currentIndexChanged();
-
-void on_idrech_currentIndexChanged();
-
-
-void on_Chercher_3_clicked();
-
-void on_idqr_currentIndexChanged();
-
-void on_pushButton_11_clicked();
-
-
-
-
-
-
-
-void on_id_m_currentIndexChanged();
+    void on_ajoutstat_clicked();
 
 private:
     Ui::MainWindow *ui;
-    Bagage Dtmp;
-    QByteArray data;
-
-
+    voyageur vtemp;
+    QByteArray data; // variable contenant les données reçues
+    arduino A; // objet temporaire
 };
+
 #endif // MAINWINDOW_H
